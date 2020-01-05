@@ -75,6 +75,17 @@
 #define HCI_FLAG_DEVICE_FOUND           (1UL << 7)
 #define HCI_FLAG_CONNECT_EVENT          (1UL << 8)
 
+/*Macros for HCI event flag tests */
+#define hci_cmd_complete (hci_event_flag & HCI_FLAG_CMD_COMPLETE)
+#define hci_connect_complete (hci_event_flag & HCI_FLAG_CONN_COMPLETE)
+#define hci_disconnect_complete (hci_event_flag & HCI_FLAG_DISCONN_COMPLETE)
+#define hci_remote_name_complete (hci_event_flag & HCI_FLAG_REMOTE_NAME_COMPLETE)
+#define hci_incoming_connect_request (hci_event_flag & HCI_FLAG_INCOMING_REQUEST)
+#define hci_read_bdaddr_complete (hci_event_flag & HCI_FLAG_READ_BDADDR)
+#define hci_read_version_complete (hci_event_flag & HCI_FLAG_READ_VERSION)
+#define hci_wii_found (hci_event_flag & HCI_FLAG_WII_FOUND)
+#define hci_connect_event (hci_event_flag & HCI_FLAG_CONNECT_EVENT)
+
 /* Macros for HCI event flag tests */
 #define hci_check_flag(flag) (hci_event_flag & (flag))
 #define hci_set_flag(flag) (hci_event_flag |= (flag))

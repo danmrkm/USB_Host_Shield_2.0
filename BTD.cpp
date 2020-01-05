@@ -627,7 +627,6 @@ void BTD::HCI_event_task() {
                         case EV_MAX_SLOTS_CHANGE:
                         case EV_QOS_SETUP_COMPLETE:
                         case EV_LINK_KEY_NOTIFICATION:
-                        case EV_ENCRYPTION_CHANGE:
                         case EV_READ_REMOTE_VERSION_INFORMATION_COMPLETE:
                           break;
                 case EV_IO_CAPABILITY_REQUEST:
