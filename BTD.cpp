@@ -587,7 +587,16 @@ void BTD::HCI_event_task() {
                                 break;
 
                         case EV_AUTHENTICATION_COMPLETE:
+                                Notify(PSTR("\r\n[HCI_EV] AUTHENTICATION_COMPLETE..."), 0x80);
                                 if(!hcibuf[2]) { // Check if pairing was successful
+#ifdef DEBUG_USB_HOST
+                                  Notify(PSTR(" Connection_Handle:"), 0x80);
+                                  D_PrintHex<uint8_t>(hcibuf[3], 0x80);
+                                  Notify(PSTR(" "), 0x80);
+                                  D_PrintHex<uint8_t>(hcibuf[4], 0x80);
+#endif
+                                  hci_Set_Connection_Encryption(hci_handle);
+
                                         if(pairWithWii && !connectToWii) {
 #ifdef DEBUG_USB_HOST
                                                 Notify(PSTR("\r\nPairing successful with Wiimote"), 0x80);
@@ -620,8 +629,76 @@ void BTD::HCI_event_task() {
                         case EV_LINK_KEY_NOTIFICATION:
                         case EV_ENCRYPTION_CHANGE:
                         case EV_READ_REMOTE_VERSION_INFORMATION_COMPLETE:
-                                break;
-#ifdef EXTRADEBUG
+                          break;
+                case EV_IO_CAPABILITY_REQUEST:
+#ifdef DEBUG_USB_HOST
+                  Notify(PSTR("\r\n[HCI_EV] IO_CAPABILITY_REQUEST"), 0x80);
+#endif
+                  disc_bdaddr[0] = hcibuf[2];
+                  disc_bdaddr[1] = hcibuf[3];
+                  disc_bdaddr[2] = hcibuf[4];
+                  disc_bdaddr[3] = hcibuf[5];
+                  disc_bdaddr[4] = hcibuf[6];
+                  disc_bdaddr[5] = hcibuf[7];
+
+                  hci_IO_Capability_Request_Reply();
+                  break;
+
+                case EV_IO_CAPABILITY_RESPONSE:
+#ifdef DEBUG_USB_HOST
+                  Notify(PSTR("\r\n[HCI_EV] IO_CAPABILITY_RESPONSE - BD_ADDR:"), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[2], 0x80);
+                  Notify(PSTR(" "), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[3], 0x80);
+                  Notify(PSTR(" "), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[4], 0x80);
+                  Notify(PSTR(" "), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[5], 0x80);
+                  Notify(PSTR(" "), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[6], 0x80);
+                  Notify(PSTR(" "), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[7], 0x80);
+                  Notify(PSTR(" IO_Capability:"), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[8], 0x80);
+                  Notify(PSTR(" OOB_Data_Present:"), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[9], 0x80);
+                  Notify(PSTR(" Authentication_Requirements:"), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[10], 0x80);
+#endif
+                  break;
+
+                case EV_USER_CONFIRMATION_REQUEST:
+#ifdef DEBUG_USB_HOST
+                  Notify(PSTR("\r\n[HCI_EV] User_Confirmation_Request - Numeric_Value:0x"), 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[11], 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[10], 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[9], 0x80);
+                  D_PrintHex<uint8_t>(hcibuf[8], 0x80);
+#endif
+                  hci_User_Confirmation_Request_Reply();
+                  break;
+
+                case EV_SIMPLE_PAIRING_COMPLETE:
+#ifdef DEBUG_USB_HOST
+                  Notify(PSTR("\r\n[HCI_EV] SIMPLE_PAIRING_COMPLETE... "), 0x80);
+                  if (!hcibuf[2])
+                    Notify(PSTR("OK"), 0x80);
+#endif
+                  break;
+
+                case EV_ENCRYPTION_CHANGE:
+#ifdef DEBUG_USB_HOST
+                  Notify(PSTR("\r\n[HCI_EV] ENCRYPTION_CHANGE... "), 0x80);
+#endif
+                  if (!hcibuf[2]) { //Status
+#ifdef DEBUG_USB_HOST
+                    Notify(PSTR("OK"), 0x80);
+#endif
+                    m_simple_pairing_completed = true;
+                  }
+                  break;
+
+#ifdef DEBUG_USB_HOST
                         default:
                                 if(hcibuf[0] != 0x00) {
                                         Notify(PSTR("\r\nUnmanaged HCI Event: "), 0x80);
@@ -631,7 +708,7 @@ void BTD::HCI_event_task() {
 #endif
                 } // Switch
         }
-#ifdef EXTRADEBUG
+#ifdef DEBUG_USB_HOST
         else {
                 Notify(PSTR("\r\nHCI event error: "), 0x80);
                 D_PrintHex<uint8_t > (rcode, 0x80);
@@ -713,9 +790,42 @@ void BTD::HCI_task() {
                                 Notify(PSTR("\r\nThe name is set to: "), 0x80);
                                 NotifyStr(btdName, 0x80);
 #endif
-                                hci_state = HCI_CHECK_DEVICE_SERVICE;
+                                hci_write_class_of_device();
+                                hci_state = HCI_WRITE_CoD_STATE;
+                                // hci_state = HCI_CHECK_DEVICE_SERVICE;
                         }
                         break;
+
+                case HCI_WRITE_CoD_STATE:
+                  if (hci_cmd_complete) {
+#ifdef DEBUG
+                    Notify(PSTR("\r\n[HCI_EV] Write_CoD_CMD COMPLETE"), 0x80);
+#endif
+                    hci_Write_Simple_Pairing_Mode();
+                    hci_state = HCI_WRITE_SIMPLE_PAIRING_STATE;
+                  }
+                  break;
+
+                case HCI_WRITE_SIMPLE_PAIRING_STATE:
+                  if (hci_cmd_complete) {
+#ifdef DEBUG
+                    Notify(PSTR("\r\n[HCI_EV] WRITE_SIMPLE_PAIRING COMPLETE"), 0x80);
+#endif
+                    hci_Set_Event_Mask_SPM();
+                    hci_state = HCI_SET_EVENT_MASK_STATE;
+                  }
+                  break;
+
+                case HCI_SET_EVENT_MASK_STATE:
+                  if (hci_cmd_complete) {
+#ifdef DEBUG
+                    Notify(PSTR("\r\n[HCI_EV] SET_EVENT_MASK COMPLETE"), 0x80);
+#endif
+                    //hci_state = HCI_CHECK_WII_SERVICE;
+                    hci_state = HCI_CHECK_DEVICE_SERVICE;
+
+                  }
+                  break;
 
                 case HCI_CHECK_DEVICE_SERVICE:
                         if(pairWithHIDDevice || pairWithWii) { // Check if it should try to connect to a Wiimote
@@ -1184,8 +1294,10 @@ void BTD::hci_write_class_of_device() { // See http://bluetooth-pentest.narod.ru
         hcibuf[0] = 0x24; // HCI OCF = 24
         hcibuf[1] = 0x03 << 2; // HCI OGF = 3
         hcibuf[2] = 0x03; // parameter length = 3
-        hcibuf[3] = 0x04; // Robot
-        hcibuf[4] = 0x08; // Toy
+        // hcibuf[3] = 0x04; // Robot
+        // hcibuf[4] = 0x08; // Toy
+        hcibuf[3] = 0x40; // Minor Device Class - 0x40=keyboard 0xC0=Combo(keyboard/pointing device)
+        hcibuf[4] = 0x05; // Major Device Class - Peripheral
         hcibuf[5] = 0x00;
 
         HCI_Command(hcibuf, 6);
@@ -1381,4 +1493,80 @@ void BTD::setMoveBdaddr(uint8_t* bdaddr) {
 
         // bmRequest = Host to device (0x00) | Class (0x20) | Interface (0x01) = 0x21, bRequest = Set Report (0x09), Report ID (0x05), Report Type (Feature 0x03), interface (0x00), datalength, datalength, data
         pUsb->ctrlReq(bAddress, epInfo[BTD_CONTROL_PIPE].epAddr, bmREQ_HID_OUT, HID_REQUEST_SET_REPORT, 0x05, 0x03, 0x00, 11, 11, buf, NULL);
+}
+void BTD::hci_Write_Simple_Pairing_Mode() {
+        hcibuf[0] = 0x56; // HCI OCF = 56
+        hcibuf[1] = 0x03 << 2; // HCI OGF = 3
+        hcibuf[2] = 0x01;  // Parameter Length = 3
+        hcibuf[3] = 0x01; // Simple_Pairing_Mode - 0x01=enabled
+
+        HCI_Command(hcibuf, 4);
+}
+
+void BTD::hci_Set_Event_Mask_SPM() {
+	hcibuf[0] = 0x01; // HCI OCF = 1
+	hcibuf[1] = 0x03 << 2; // HCI OGF = 3
+	hcibuf[2] = 0x08; // Parameter Length = 8
+	hcibuf[3] = 0xFF; // Event_Mask:0x00 ff 1f ff ff ff ff ff
+	hcibuf[4] = 0xFF; //
+	hcibuf[5] = 0xFF; //
+	hcibuf[6] = 0xFF; //
+	hcibuf[7] = 0xFF; //
+	hcibuf[8] = 0x1F; //
+	hcibuf[9] = 0xFF; //
+	hcibuf[10] = 0x00; //
+
+	HCI_Command(hcibuf, 11);
+}
+
+void BTD::hci_Authentication_Requested(uint16_t handle) {
+	hcibuf[0] = 0x11; // HCI OCF = 11
+	hcibuf[1] = 0x01 << 2; // HCI OGF = 1
+	hcibuf[2] = 0x02; // Parameter Length = 8
+	hcibuf[3] = (uint8_t)(handle & 0xFF);//connection handle - low byte
+	hcibuf[4] = (uint8_t)((handle >> 8) & 0x0F);//connection handle - high byte
+
+	HCI_Command(hcibuf, 5);
+}
+
+void BTD::hci_IO_Capability_Request_Reply() {
+	hcibuf[0] = 0x2B; // HCI OCF = 2B
+	hcibuf[1] = 0x01 << 2; // HCI OGF = 1
+	hcibuf[2] = 0x09; // Parameter Length = 9
+	hcibuf[3] = disc_bdaddr[0]; // 6 octet bdaddr
+	hcibuf[4] = disc_bdaddr[1];
+	hcibuf[5] = disc_bdaddr[2];
+	hcibuf[6] = disc_bdaddr[3];
+	hcibuf[7] = disc_bdaddr[4];
+	hcibuf[8] = disc_bdaddr[5];
+	hcibuf[9] = 0x03; //IO_Capability - 0x03	NoInputNoOutput
+	hcibuf[10] = 0x00; //OOB_Data_Present - 0x00 not present
+	hcibuf[11] = 0x05; //Authentication_Requirements - 0x00?
+
+	HCI_Command(hcibuf, 12);
+}
+
+void BTD::hci_User_Confirmation_Request_Reply() {
+	hcibuf[0] = 0x2C; // HCI OCF = 2C
+	hcibuf[1] = 0x01 << 2; // HCI OGF = 1
+	hcibuf[2] = 0x06; // Parameter Length = 6
+	hcibuf[3] = disc_bdaddr[0]; // 6 octet bdaddr
+	hcibuf[4] = disc_bdaddr[1];
+	hcibuf[5] = disc_bdaddr[2];
+	hcibuf[6] = disc_bdaddr[3];
+	hcibuf[7] = disc_bdaddr[4];
+	hcibuf[8] = disc_bdaddr[5];
+
+	HCI_Command(hcibuf, 9);
+}
+
+void BTD::hci_Set_Connection_Encryption(uint16_t handle) {
+	hcibuf[0] = 0x13; // HCI OCF = 13
+	hcibuf[1] = 0x01 << 2; // HCI OGF = 1
+	hcibuf[2] = 0x03; // Parameter Length = 9
+	hcibuf[3] = (uint8_t)(handle & 0xFF); //Connection_Handle - low byte
+	hcibuf[4] = (uint8_t)((handle >> 8) & 0x0F); //Connection_Handle - high byte
+	hcibuf[5] = 0x01; //Encryption_Enable - 0x01=ON
+
+	HCI_Command(hcibuf, 6);
 }

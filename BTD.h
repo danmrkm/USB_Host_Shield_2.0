@@ -34,7 +34,8 @@
 #define BELKIN_F8T065BF_PID     0x065A
 
 /* Bluetooth dongle data taken from descriptors */
-#define BULK_MAXPKTSIZE         64 // Max size for ACL data
+//#define BULK_MAXPKTSIZE         64 // Max size for ACL data
+#define BULK_MAXPKTSIZE         128 // Max size for ACL data
 
 // Used in control endpoint header for HCI Commands
 #define bmREQ_HCI_OUT USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_DEVICE
@@ -59,6 +60,9 @@
 #define HCI_DISABLE_SCAN_STATE          14
 #define HCI_DONE_STATE                  15
 #define HCI_DISCONNECT_STATE            16
+#define HCI_WRITE_CoD_STATE             17
+#define HCI_WRITE_SIMPLE_PAIRING_STATE  18
+#define HCI_SET_EVENT_MASK_STATE        19
 
 /* HCI event flags*/
 #define HCI_FLAG_CMD_COMPLETE           (1UL << 0)
@@ -99,6 +103,10 @@
 #define EV_COMMAND_STATUS                               0x0F
 #define EV_LOOPBACK_COMMAND                             0x19
 #define EV_PAGE_SCAN_REP_MODE                           0x20
+#define EV_IO_CAPABILITY_REQUEST                        0x31
+#define EV_IO_CAPABILITY_RESPONSE                       0x32
+#define EV_USER_CONFIRMATION_REQUEST                    0x33
+#define EV_SIMPLE_PAIRING_COMPLETE                      0x36
 
 /* Bluetooth states for the different Bluetooth drivers */
 #define L2CAP_WAIT                      0
@@ -368,6 +376,20 @@ public:
         void hci_write_class_of_device();
         /**@}*/
 
+        void hci_Write_Simple_Pairing_Mode();
+        void hci_Set_Event_Mask_SPM();
+        void hci_Authentication_Requested(uint16_t handle);
+        void hci_IO_Capability_Request_Reply();
+        void hci_User_Confirmation_Request_Reply();
+        void hci_Set_Connection_Encryption(uint16_t handle);
+        bool isSimplePairingCompleted(){return m_simple_pairing_completed;};
+        void StartSimplePairingOperation(uint16_t handle)
+        {
+	  m_simple_pairing_completed = false;
+	  hci_Authentication_Requested(handle);
+	}
+
+
         /** @name L2CAP Commands */
         /**
          * Used to send L2CAP Commands.
@@ -563,6 +585,8 @@ private:
         /* Used to set the Bluetooth Address internally to the PS3 Controllers */
         void setBdaddr(uint8_t* BDADDR);
         void setMoveBdaddr(uint8_t* BDADDR);
+
+        bool m_simple_pairing_completed;
 };
 
 /** All Bluetooth services should inherit this class. */
